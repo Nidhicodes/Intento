@@ -136,22 +136,51 @@ sequenceDiagram
 
 ## Run it
 
-Backend:
-```bash
-npm install
-cp .env.example .env   # set GROQ_API_KEY (free) or VENICE_API_KEY
-npx tsx src/server.ts
-```
+The whole app — UI **and** backend — runs as one Next.js project. The agents,
+orchestrator, and onchain enforcement live in API routes under
+`frontend/src/app/api/*`, so a single command serves everything.
 
-Frontend:
 ```bash
-cd frontend && npm install && npx next dev
+cd frontend
+npm install
+cp .env.example .env.local   # set the agent keys + GROQ_API_KEY (free)
+npx next dev                 # UI + API on http://localhost:3000
 ```
 
 Check funding before the onchain proof:
 ```bash
-npx tsx src/check-setup.ts
+npx tsx src/check-setup.ts   # from the repo root; reports the smart-account address
 ```
+
+> The standalone Express backend (`src/server.ts`, port 3001) still works for
+> local development, but it's no longer required — the Next.js API routes are
+> the source of truth for deployment.
+
+---
+
+## Deploy (single Vercel project)
+
+Because the backend lives in Next.js API routes, one Vercel deploy serves both
+the UI and the API on the same origin.
+
+1. **Import the repo** into Vercel and set **Root Directory = `frontend`**.
+2. **Add environment variables** (Project Settings → Environment Variables):
+
+   ```
+   ORCHESTRATOR_PRIVATE_KEY=0x...        # testnet-only demo keys
+   RISK_AGENT_PRIVATE_KEY=0x...
+   YIELD_AGENT_PRIVATE_KEY=0x...
+   EXECUTION_AGENT_PRIVATE_KEY=0x...
+   LLM_PROVIDER=groq
+   GROQ_API_KEY=...
+   CHAIN=base-sepolia
+   RPC_URL=https://sepolia.base.org
+   NEXT_PUBLIC_ORCHESTRATOR_KEY=0x...    # must match ORCHESTRATOR_PRIVATE_KEY
+   ```
+
+   Leave `NEXT_PUBLIC_API_URL` **unset** — the client calls `/api/*` same-origin.
+3. **Deploy.** The build emits five dynamic API routes (`/api/intent`,
+   `/api/cycle`, `/api/redeem`, `/api/overspend`, `/api/proof/setup`).
 
 ---
 
