@@ -1,0 +1,33 @@
+{
+  "name": "intento",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentic DeFi portfolio management with ERC-7710/7715 redelegation, Venice AI, x402, and 1Shot",
+  "scripts": {
+    "dev:backend": "tsx watch src/server.ts",
+    "dev:frontend": "next dev --dir frontend",
+    "build": "tsc && next build --dir frontend",
+    "start": "node dist/server.js",
+    "cycle": "tsx src/run-cycle.ts"
+  },
+  "dependencies": {
+    "@metamask/smart-accounts-kit": "^1.5.0",
+    "@metamask/x402": "^0.1.0",
+    "@x402/core": "^2.12.0",
+    "@x402/fetch": "^2.12.0",
+    "viem": "^2.21.0",
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "zod": "^3.23.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.0",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

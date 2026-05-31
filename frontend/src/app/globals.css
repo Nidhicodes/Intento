@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #09090F;
+
+  --color-amber-glow: #E8B86D;
+  --color-amber-deep: #C9933A;
+
+  --color-violet-glow: #9B8FF8;
+  --color-violet-deep: #7B6EF6;
+
+  --color-teal-glow: #4ECDC4;
+  --color-rose-warn: #F87171;
+
+  --color-txt-primary: #F2F0EB;
+  --color-txt-secondary: #9B9891;
+  --color-txt-tertiary: #5C5A56;
+
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: #09090F;
+  color: #F2F0EB;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: 'DM Serif Display', Georgia, serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.glass-hover { transition: all 0.2s ease-out; }
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+/* Light wave background */
+.lightwave { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.lightwave::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 80% 50% at 65% 40%, rgba(232, 184, 109, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 30% 60%, rgba(123, 110, 246, 0.06) 0%, transparent 70%);
+  animation: lightwave 12s ease-in-out infinite;
+}
+@keyframes lightwave {
+  0%   { transform: translate(0%, 0%); }
+  50%  { transform: translate(5%, -5%); }
+  100% { transform: translate(0%, 0%); }
+}
+
+/* Grid overlay */
+.grid-overlay {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Amber CTA glow */
+.cta-amber { transition: all 0.3s ease-out; }
+.cta-amber:hover { box-shadow: 0 0 32px rgba(201, 147, 58, 0.35), 0 4px 16px rgba(0, 0, 0, 0.4); }
+
+/* Pulsing glow for MetaMask button */
+@keyframes amberPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(232, 184, 109, 0.25); }
+  50%      { box-shadow: 0 0 40px rgba(232, 184, 109, 0.5); }
+}
+.pulse-amber { animation: amberPulse 2.5s ease-in-out infinite; }
+
+/* Live dot pulse */
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.live-dot { animation: livePulse 2s ease-in-out infinite; }
+
+/* SVG flow line */
+@keyframes dashFlow { to { stroke-dashoffset: -24; } }
+.flow-line { stroke-dasharray: 4 4; animation: dashFlow 1s linear infinite; }
+
+/* Log fade in */
+@keyframes logFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.log-in { animation: logFade 0.4s ease-out forwards; }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
+
+/* Skeleton shimmer */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Progress bar fill */
+.bar-fill { transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Page fade */
+.fade-page { animation: logFade 0.5s ease-out; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
