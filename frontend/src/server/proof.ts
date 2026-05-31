@@ -1,7 +1,7 @@
 import { createWalletClient, createPublicClient, http, encodeFunctionData, parseUnits, formatUnits, erc20Abi, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
-import { createExecution, ExecutionMode, contracts, getSmartAccountsEnvironment } from '@metamask/smart-accounts-kit';
+import { toMetaMaskSmartAccount, Implementation, createDelegation, ScopeType, createExecution, ExecutionMode, contracts, getSmartAccountsEnvironment } from '@metamask/smart-accounts-kit';
 import { USDC } from './config';
 
 const { DelegationManager } = contracts;
@@ -14,27 +14,90 @@ export interface SetupInfo { userSmartAccount: string | null; usdcBalance: numbe
 
 const publicClient = createPublicClient({ chain: baseSepolia, transport: http(RPC) });
 function riskAccount() { return privateKeyToAccount(process.env.RISK_AGENT_PRIVATE_KEY as Hex); }
+function orchestratorSigner() { return privateKeyToAccount(process.env.ORCHESTRATOR_PRIVATE_KEY as Hex); }
 
-export async function ensureSetup(userSmartAccount?: string): Promise<SetupInfo> {
+/**
+ * Builds the orchestrator smart account (deployed + funded on Base Sepolia).
+ * This is the source of funds for the enforcement proof — it holds delegated
+ * authority and is the account whose USDC the redemption moves.
+ */
+async function orchestratorSmartAccount() {
+  const signer = orchestratorSigner();
+  return toMetaMaskSmartAccount({
+    client: publicClient as any,
+    implementation: Implementation.Hybrid,
+    deployParams: [signer.address, [], [], []],
+    deploySalt: '0x',
+    signer: { account: signer },
+  });
+}
+
+/**
+ * Creates and signs a REAL orchestrator-SA → risk-agent delegation capped at
+ * 20 USDC. Self-contained (no parent): the orchestrator SA is the delegator,
+ * so the redemption moves the orchestrator SA's own USDC up to the cap. This
+ * makes the proof independent of the user's (counterfactual) smart account.
+ */
+async function buildProofDelegation(): Promise<any> {
+  const orchestratorSA = await orchestratorSmartAccount();
   const risk = riskAccount();
-  if (!userSmartAccount) {
-    return { userSmartAccount: null, usdcBalance: 0, riskAgent: risk.address, ready: false, note: 'Grant permission first to establish your smart account.' };
-  }
-  const bal = await publicClient.readContract({ address: USDC as Address, abi: erc20Abi, functionName: 'balanceOf', args: [userSmartAccount as Address] });
+  const delegation = createDelegation({
+    scope: {
+      type: ScopeType.Erc20TransferAmount,
+      tokenAddress: USDC as Address,
+      maxAmount: parseUnits(RISK_CAP_USDC.toString(), 6),
+    },
+    to: risk.address,
+    from: orchestratorSA.address,
+    environment: orchestratorSA.environment,
+  });
+  const signature = await orchestratorSA.signDelegation({ delegation });
+  return { ...delegation, signature };
+}
+
+/**
+ * Reports the funded delegator (orchestrator smart account) for the proof.
+ * Ready when it is deployed and holds at least 1 USDC.
+ */
+export async function ensureSetup(_userSmartAccount?: string): Promise<SetupInfo> {
+  const risk = riskAccount();
+  const orchestratorSA = await orchestratorSmartAccount();
+  const addr = orchestratorSA.address as Address;
+
+  const code = await publicClient.getBytecode({ address: addr });
+  const deployed = !!code && code !== '0x';
+  const bal = await publicClient.readContract({ address: USDC as Address, abi: erc20Abi, functionName: 'balanceOf', args: [addr] });
   const usdcBalance = parseFloat(formatUnits(bal, 6));
+  const ready = deployed && usdcBalance >= 1;
+
   return {
-    userSmartAccount, usdcBalance, riskAgent: risk.address, ready: usdcBalance > 0,
-    note: usdcBalance > 0 ? 'Ready to run enforcement proof through the real chain.' : `Fund your smart account with test USDC: ${userSmartAccount}`,
+    userSmartAccount: addr,
+    usdcBalance,
+    riskAgent: risk.address,
+    ready,
+    note: ready
+      ? 'Ready to run enforcement proof through the real onchain delegation.'
+      : !deployed
+        ? 'Proof account not deployed yet. Run the funding/deploy step.'
+        : `Fund the proof account with test USDC: ${addr}`,
   };
 }
 
-export async function redeemWithinCap(riskRedelegation: any, rootDelegation: any, amountUsdc: number): Promise<ProofResult> {
+/**
+ * Redeems the REAL onchain delegation to transfer `amountUsdc` from the
+ * orchestrator smart account to the risk agent. The Risk Agent EOA submits the
+ * tx (pays gas); the DelegationManager validates the delegation and enforces
+ * the 20 USDC cap via ERC20TransferAmountEnforcer.
+ *
+ * Args are accepted for backward-compat with the client but ignored: the proof
+ * always builds its own self-contained, funded chain for reliability.
+ */
+export async function redeemWithinCap(_riskRedelegation: any, _rootDelegation: any, amountUsdc: number): Promise<ProofResult> {
   try {
-    if (!riskRedelegation || !rootDelegation) {
-      return { success: false, txHash: null, amountUsdc, reverted: false, revertReason: 'Missing delegation chain. Grant permission first.' };
-    }
     const risk = riskAccount();
-    const chain = [riskRedelegation, rootDelegation];
+    const proofDelegation = await buildProofDelegation();
+    const chain = [proofDelegation];
+
     const calldata = encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [risk.address, parseUnits(amountUsdc.toString(), 6)] });
     const execution = createExecution({ target: USDC as Address, callData: calldata });
     const redeemCalldata = DelegationManager.encode.redeemDelegations({ delegations: [chain], modes: [ExecutionMode.SingleDefault], executions: [[execution]] });
@@ -51,6 +114,10 @@ export async function redeemWithinCap(riskRedelegation: any, rootDelegation: any
   }
 }
 
+/**
+ * Attempts to spend 2x the cap through the real chain. Expected: REVERT via
+ * the ERC20TransferAmountEnforcer (allowance-exceeded).
+ */
 export async function attemptOverspend(riskRedelegation: any, rootDelegation: any): Promise<ProofResult> {
   const result = await redeemWithinCap(riskRedelegation, rootDelegation, RISK_CAP_USDC * 2);
   return { ...result, success: result.reverted };
