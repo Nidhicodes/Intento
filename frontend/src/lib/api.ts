@@ -2,7 +2,9 @@
  * API client for the Intento backend.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Empty default = same-origin. The backend now lives in Next.js API routes
+// (/api/*), so a single Vercel deploy serves both UI and API.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export interface PermissionSpec {
   periodAmount: number;
@@ -114,7 +116,7 @@ export async function parseIntent(intent: string): Promise<PermissionSpec> {
   return data.spec;
 }
 
-export async function runCycle(portfolio: Portfolio, spec: PermissionSpec): Promise<{ cycleId: string; status: string }> {
+export async function runCycle(portfolio: Portfolio, spec: PermissionSpec): Promise<CycleRecord> {
   const res = await fetch(`${API_BASE}/api/cycle`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -122,25 +124,9 @@ export async function runCycle(portfolio: Portfolio, spec: PermissionSpec): Prom
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || 'Failed to start cycle');
+    throw new Error(err.error || 'Failed to run cycle');
   }
-  return res.json();
-}
-
-export async function getCycle(id: string): Promise<CycleRecord> {
-  const res = await fetch(`${API_BASE}/api/cycle/${id}`);
-  if (!res.ok) throw new Error('Cycle not found');
-  return res.json();
-}
-
-export async function getAllCycles(): Promise<CycleRecord[]> {
-  const res = await fetch(`${API_BASE}/api/cycles`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
-export async function getHealth(): Promise<{ status: string; chain: string }> {
-  const res = await fetch(`${API_BASE}/health`);
+  // The API route now runs the full cycle and returns the complete record.
   return res.json();
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { runCycle, getCycle, type CycleRecord, type PermissionSpec, type Portfolio } from '@/lib/api';
+import { runCycle, type CycleRecord, type PermissionSpec, type Portfolio } from '@/lib/api';
 import { Activity, Loader2 } from 'lucide-react';
 
 /**
@@ -35,14 +35,9 @@ export function CostlySignal({ userAddress, spec }: { userAddress: string; spec:
         excludedTokens: ['WETH', 'stETH'], maxSingleTx: 500, riskTolerance: 'medium',
         objective: 'yield_maximization', maxDrawdownPct: 8, justification: 'demo',
       };
-      const { cycleId } = await runCycle(portfolio, effectiveSpec);
-      // poll until terminal
-      for (let i = 0; i < 20; i++) {
-        await new Promise((r) => setTimeout(r, 800));
-        const c = await getCycle(cycleId);
-        setCycle(c);
-        if (['completed', 'failed', 'held'].includes(c.status)) break;
-      }
+      // The API route runs the full cycle and returns the complete record.
+      const record = await runCycle(portfolio, effectiveSpec);
+      setCycle(record);
     } catch (e: any) {
       setError(e.message);
     } finally {
